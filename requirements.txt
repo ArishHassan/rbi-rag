@@ -1,0 +1,7 @@
+groq
+google-generativeai
+chromadb
+pypdf
+tqdm
+requests
+python-dotenv
