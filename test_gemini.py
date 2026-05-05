@@ -1,6 +1,10 @@
-import google.generativeai as genai
-genai.configure(api_key='AIzaSyDSyHQ1oQOe3dSsd3fx2eWEzmJ1L4AFv9M')
+import os
+from dotenv import load_dotenv
+load_dotenv()
+from google import genai
 
-for m in genai.list_models():
-    if 'embedContent' in m.supported_generation_methods:
+client = genai.Client(api_key=os.environ.get("GEMINI_API_KEY"))
+
+for m in client.models.list():
+    if 'embedContent' in m.supported_actions:
         print(m.name)

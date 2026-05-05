@@ -3,18 +3,19 @@ from dotenv import load_dotenv
 load_dotenv()
 from typing import List, Dict
 import chromadb
-import google.generativeai as genai
+from google import genai
+from google.genai import types
 from groq import Groq
 
 # ── Constants ──
 CHROMA_PATH = "./chroma_db"
 COLLECTION_NAME = "pdf_rag"
-GEMINI_EMBED_MODEL = "models/gemini-embedding-001"
+GEMINI_EMBED_MODEL = "gemini-embedding-2"
 GROQ_CHAT_MODEL = "llama-3.1-8b-instant"
 
 class CustomGeminiEmbeddingFunction(chromadb.EmbeddingFunction):
     def __init__(self, api_key: str, model_name: str):
-        genai.configure(api_key=api_key)
+        self.client = genai.Client(api_key=api_key)
         self.model_name = model_name
 
     def __call__(self, input: List[str]) -> List[List[float]]:
@@ -22,12 +23,12 @@ class CustomGeminiEmbeddingFunction(chromadb.EmbeddingFunction):
         max_retries = 4
         for attempt in range(max_retries):
             try:
-                result = genai.embed_content(
+                result = self.client.models.embed_content(
                     model=self.model_name,
-                    content=input,
-                    task_type="retrieval_document"
+                    contents=input,
+                    config=types.EmbedContentConfig(task_type="RETRIEVAL_DOCUMENT")
                 )
-                return result['embedding']
+                return [e.values for e in result.embeddings]
             except Exception as e:
                 if "429" in str(e) or "Quota" in str(e):
                     if attempt == max_retries - 1:
