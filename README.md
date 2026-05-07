@@ -1,12 +1,12 @@
 # RBI Document RAG Pipeline
 
-A lightweight, local Retrieval-Augmented Generation (RAG) pipeline built to index and query Reserve Bank of India (RBI) documents. This project uses 100% free cloud APIs (Google Gemini for embeddings and Groq for chat generation) paired with a local ChromaDB instance to allow for massive document processing without any compute constraints or API costs.
+A lightweight, local Retrieval-Augmented Generation (RAG) pipeline built to index and query Reserve Bank of India (RBI) documents. This project uses Google Gemini for embeddings, Groq for chat generation, and a local ChromaDB instance for retrieval.
 
 ## Architecture
 
 - **Embeddings:** Google Generative AI (`models/gemini-embedding-001`). The ingest script includes built-in exponential backoff to handle Google's free-tier rate limits gracefully.
 - **Vector Store:** ChromaDB (running completely locally).
-- **LLM:** Groq (`llama-3.1-8b-instant`) for blazing-fast inference.
+- **LLM:** Groq (`llama-3.1-8b-instant`) for chat generation.
 - **Ingestion Engine:** Python's `pypdf` reading URLs directly into memory.
 
 ## Setup Instructions

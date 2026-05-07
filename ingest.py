@@ -22,23 +22,39 @@ class CustomGeminiEmbeddingFunction(chromadb.EmbeddingFunction):
 
     def __call__(self, input: List[str]) -> List[List[float]]:
         import time
-        max_retries = 4
-        for attempt in range(max_retries):
-            try:
-                result = self.client.models.embed_content(
-                    model=self.model_name,
-                    contents=input,
-                    config=types.EmbedContentConfig(task_type="RETRIEVAL_DOCUMENT")
-                )
-                return [e.values for e in result.embeddings]
-            except Exception as e:
-                if "429" in str(e) or "Quota" in str(e):
-                    if attempt == max_retries - 1:
+        max_retries = 6
+        all_embeddings = []
+        batch_size = 90
+        
+        for i in range(0, len(input), batch_size):
+            batch = input[i:i+batch_size]
+            batch_embeddings = None
+            
+            for attempt in range(max_retries):
+                try:
+                    result = self.client.models.embed_content(
+                        model=self.model_name,
+                        contents=batch,
+                        config=types.EmbedContentConfig(task_type="RETRIEVAL_DOCUMENT")
+                    )
+                    batch_embeddings = [e.values for e in result.embeddings]
+                    break
+                except Exception as e:
+                    if "429" in str(e) or "Quota" in str(e):
+                        if attempt == max_retries - 1:
+                            raise e
+                        sleep_time = 30 * (2 ** attempt)
+                        print(f"\n[Rate Limit Hit] Attempt {attempt+1}/{max_retries}. Sleeping for {sleep_time} seconds...")
+                        time.sleep(sleep_time)
+                    else:
                         raise e
-                    print(f"\n[Rate Limit Hit] Sleeping for 30 seconds before retrying...")
-                    time.sleep(30)
-                else:
-                    raise e
+            
+            # Sleep between successful batches to avoid hitting 15 RPM free tier limit
+            time.sleep(4)
+            if batch_embeddings:
+                all_embeddings.extend(batch_embeddings)
+                
+        return all_embeddings
 
     def name(self) -> str:
         return "custom_gemini"
@@ -87,6 +103,10 @@ def build_documents(pdf_path: str, name: str = None) -> Tuple[List[str], List[Di
     
     source_name = name if name else os.path.basename(pdf_path)
     
+    doc_header = ""
+    if pages and len(pages) > 0:
+        doc_header = pages[0]["text"][:1000] # First 1000 characters as global context
+        
     for p in pages:
         page_chunks = chunk_text(p["text"])
         for i, chunk in enumerate(page_chunks):
@@ -94,7 +114,8 @@ def build_documents(pdf_path: str, name: str = None) -> Tuple[List[str], List[Di
             chunk_hash = hashlib.md5(chunk.encode("utf-8")).hexdigest()
             doc_id = f"{source_name}_p{p['page']}_{i}_{chunk_hash[:8]}"
             
-            texts.append(chunk)
+            enriched_chunk = f"[GLOBAL DOCUMENT CONTEXT (from page 1)]\n{doc_header}\n[END GLOBAL CONTEXT]\n\n[CHUNK CONTENT]\n{chunk}"
+            texts.append(enriched_chunk)
             metadatas.append({
                 "source": source_name,
                 "page": p["page"],

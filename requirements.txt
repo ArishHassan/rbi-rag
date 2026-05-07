@@ -5,3 +5,6 @@ pypdf
 tqdm
 requests
 python-dotenv
+fastapi
+uvicorn
+python-multipart
